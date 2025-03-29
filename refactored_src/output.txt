@@ -1,0 +1,45 @@
+(base) PS C:\Users\Aarushi\Desktop\SC4023\SC4023-Project\refactored_src> java Main   
+Data loaded: 222833 records
+Column store database created successfully!
+
+Query for: U2120814C
+Town: WOODLANDS
+Months: 1, 2
+Year: 2014
+Multi-Key Index built, size: 115472
+
+Performance comparison:
+Time taken for Normal method: 29634000 ns
+Returned PosArray Size:135
+Time taken for Index method: 93100 ns
+Returned PosArray Size:160
+Time taken for Compressed+ZoneMap+Sorted method: 287700 ns
+Returned PosArray Size:135
+
+Query for: U2121505H
+Town: JURONG WEST
+Months: 10, 11
+Year: 2015
+Multi-Key Index built, size: 115472
+
+Performance comparison:
+Time taken for Normal method: 33469600 ns
+Returned PosArray Size:221
+Time taken for Index method: 79800 ns
+Returned PosArray Size:221
+Time taken for Compressed+ZoneMap+Sorted method: 90700 ns
+Returned PosArray Size:221
+
+Query for: U2121165H
+Town: BUKIT PANJANG
+Months: 6, 7
+Year: 2015
+Multi-Key Index built, size: 115472
+
+Performance comparison:
+Time taken for Normal method: 23148700 ns
+Returned PosArray Size:97
+Time taken for Index method: 100900 ns
+Returned PosArray Size:97
+Time taken for Compressed+ZoneMap+Sorted method: 145900 ns
+Returned PosArray Size:97
