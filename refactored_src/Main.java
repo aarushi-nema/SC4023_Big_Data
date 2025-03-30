@@ -1,4 +1,6 @@
 import java.util.ArrayList;
+import java.util.Map;
+import java.util.HashMap;
 
 /**
  * Main application class for property data analysis
@@ -10,8 +12,43 @@ public class Main {
         
         // Process multiple matriculation numbers for analysis
         // You can replace these with your actual group members' matriculation numbers
-        String[] matriculationNumbers = new String[]{"U2120814C", "U2121505H", "U2121165H"};
+        String[] matriculationNumbers = new String[]{"U2120304J", "U2122495G"};
+
+////////////////////////////////////////////////
+        // // SHARED SCAN AREA PLS UNCOMMENT TO RUN 
+        // ArrayList<Integer> all_lastThreeChars = new ArrayList<>();
+        // for (String matNumber : matriculationNumbers) {
+        //     Integer lastThreeChars = Integer.valueOf(matNumber.substring(matNumber.length() - 4, matNumber.length() - 1));
+        //     all_lastThreeChars.add(lastThreeChars);
+        // }
+
+        // ArrayList<QuerySpec> fullQuerySpec = db.sharedScanQuerySpec(all_lastThreeChars);
+        // db.compressTownDate();
+        // db.sortByCompressedData();
+        // db.buildIndex();
+        // db.createZoneMap();
+
+        // for (String matNumber : matriculationNumbers)
+        //     db.createOutputFile("ScanResult_" + matNumber);
         
+        // String[] methodArr = new String[]{"Normal"};
+        // long startTime, stopTime;
+
+        // for (int i = 0; i < methodArr.length; i++) {
+        
+        //     startTime = System.nanoTime();
+
+        //     switch(i) {
+        //         case 0:
+        //             Map<QuerySpec, ArrayList<Integer>> AllposArray= db.sharedScanQueryDB(fullQuerySpec);
+        //             break;
+        //     }
+
+        //     stopTime = System.nanoTime();
+        //     System.out.println("Time taken for " + methodArr[i] + " method: " + (stopTime - startTime) + " ns");
+        // }
+
+///////////////////////////////////////////////////////////////////////////
         // Process each matriculation number
         for (String matNumber : matriculationNumbers) {
             System.out.println("\nQuery for: " + matNumber);

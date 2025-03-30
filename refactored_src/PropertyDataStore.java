@@ -61,6 +61,51 @@ public class PropertyDataStore {
             throw new RuntimeException("Data loading failed", e);
         }
     }
+
+    public static ArrayList<QuerySpec> sharedScanQuerySpec(List<Integer> identifierDigitsList) {
+        String[] locations = {
+            "BEDOK", "BUKIT PANJANG", "CLEMENTI", "CHOA CHU KANG", "HOUGANG",
+            "JURONG WEST", "PASIR RIS", "TAMPINES", "WOODLANDS", "YISHUN"
+        };
+
+        int[][] monthPairs = {
+            {10, 11}, {1, 2}, {2, 3}, {3, 4}, {4, 5},
+            {5, 6}, {6, 7}, {7, 8}, {8, 9}, {9, 10}
+        };
+
+        String[][] formattedMonths = {
+            {"10", "11"}, {"01", "02"}, {"02", "03"}, {"03", "04"}, {"04", "05"},
+            {"05", "06"}, {"06", "07"}, {"07", "08"}, {"08", "09"}, {"09", "10"}
+        };
+
+        int[] yearMapping = {2020, 2021, 2022, 2023, 2014, 2015, 2016, 2017, 2018, 2019};
+
+        ArrayList<QuerySpec> specList = new ArrayList<>();
+
+        for (int identifierDigits : identifierDigitsList) {
+            int locationCode = identifierDigits / 100;
+            int monthCode = (identifierDigits / 10) % 10;
+            int yearCode = identifierDigits % 10;
+
+            String targetLocation = locations[locationCode];
+            ArrayList<Integer> targetMonths = new ArrayList<>(Arrays.asList(
+                monthPairs[monthCode][0], monthPairs[monthCode][1]
+            ));
+            ArrayList<String> targetMonthsFormatted = new ArrayList<>(Arrays.asList(
+                formattedMonths[monthCode][0], formattedMonths[monthCode][1]
+            ));
+            String targetYear = String.valueOf(yearMapping[yearCode]);
+
+            System.out.println("Town: " + targetLocation);
+            System.out.println("Months: " + targetMonths.get(0) + ", " + targetMonths.get(1));
+            System.out.println("Year: " + targetYear);
+            System.out.println("");
+            specList.add(new QuerySpec(targetLocation, targetMonths, targetMonthsFormatted, targetYear));
+        }
+
+        return specList;
+    }
+
     
     /**
      * Configures query parameters based on the user's matriculation number
@@ -365,6 +410,49 @@ public class PropertyDataStore {
         };
         return Arrays.asList(locations).indexOf(town);
     }
+
+    public Map<QuerySpec, ArrayList<Integer>> sharedScanQueryDB(ArrayList<QuerySpec> specs) {
+        Map<QuerySpec, ArrayList<Integer>> resultMap = new HashMap<>();
+        Map<QuerySpec, ArrayList<Integer>> dateFilteredMap = new HashMap<>();
+
+        // Initialize both maps per spec
+        for (QuerySpec spec : specs) {
+            resultMap.put(spec, new ArrayList<>());
+            dateFilteredMap.put(spec, new ArrayList<>());
+        }
+
+        // Step 1: Shared loop over all records (filter by date for each spec)
+        for (int i = 0; i < columns.get(0).size(); i++) {
+            String dateString = columns.get(COL_DATE).get(i);
+            String[] dateParts = dateString.split("-");
+            String year = dateParts[0];
+            int month = Integer.parseInt(dateParts[1]);
+
+            for (QuerySpec spec : specs) {
+                if (year.equals(spec.targetYear) && spec.targetMonths.contains(month)) {
+                    dateFilteredMap.get(spec).add(i); // Append to this spec's list
+                }
+            }
+        }   
+
+        // Step 2: For each spec, apply town + area filtering
+        for (QuerySpec spec : specs) {
+            ArrayList<Integer> finalResults = resultMap.get(spec);
+            ArrayList<Integer> dateFiltered = dateFilteredMap.get(spec);
+
+            for (int i : dateFiltered) {
+                String town = columns.get(COL_LOCATION).get(i);
+                double floorArea = Double.parseDouble(columns.get(COL_AREA).get(i));
+
+                if (town.equals(spec.targetLocation) && floorArea >= AREA_THRESHOLD) {
+                    finalResults.add(i);
+                }
+            }
+        }
+
+        return resultMap;
+    }
+
     
     /**
      * Basic query method - sequential scan
