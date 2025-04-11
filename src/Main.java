@@ -1,60 +1,134 @@
 import java.util.ArrayList;
+import java.util.Map;
+import java.util.HashMap;
 
-
+/**
+ * Main application class for property data analysis
+ * Combines individual processing with shared scan functionality
+ */
 public class Main {
-
     public static void main(String[] args) {
-        Database db = new Database();
-        // Change array to include all matriculation numbers to be tested
-        // You can replace these with your actual group members' matriculation numbers
-        String[] mat_numbers = new String[]{"U2120814C", "U2121505H", "U2121165H"};
+        System.out.println("======================================================");
+        System.out.println("            PROPERTY DATA ANALYSIS SYSTEM             ");
+        System.out.println("======================================================");
         
-        for (String mat_number : mat_numbers) {
-            System.out.println("\nQuery for: " + mat_number);
-            // Extract the last 3 digits for query specification
-            // db.initQuerySpec(Integer.valueOf(mat_number.substring(mat_number.length() - 3)));
-            String lastThreeChars = mat_number.substring(mat_number.length() - 4, mat_number.length() - 1);
-            db.initQuerySpec(Integer.valueOf(lastThreeChars));
-
-            // Setup and optimize the database
-            db.compressTownDate();
-            db.sortByCompressedData();
-            db.buildIndex();
-            db.createZoneMap();
-            
-            // Create output file with required format
-            db.createOutputFile("ScanResult_" + mat_number);
-            db.calculateDefault();
-            db.closeOutputFile();
-
-            // Compare performance of different query methods
-            ArrayList<Integer> posArray = null;
-            long startTime, stopTime;
-            String[] methodArr = new String[]{"Normal", "Index", "Compressed+ZoneMap+Sorted"};
-            
-            for (int i=0; i < methodArr.length; i++) {
-                startTime = System.nanoTime();
-                switch(i) {
-                    case 0:
-                        posArray = db.queryDB();
-                        break;
-                    case 1:
-                        posArray = db.queryDBIndex();
-                        break;
-                    case 2:
-                        posArray = db.queryCompressedDB();
-                        break;
-                }
-                stopTime = System.nanoTime();
-                
-                // Print time taken for each method
-                System.out.println("Time taken for " + methodArr[i] + " method: " + (stopTime - startTime) + " ns");
-                try {
-                    System.out.println("Returned PosArray Size:" + posArray.size());
-                } catch (Exception NullPointerException) {
-                    System.out.println("No records fit criteria");
-                }
-            }
+        PropertyDataStore db = new PropertyDataStore();
+        
+        // Process multiple matriculation numbers for analysis
+        String[] matriculationNumbers = new String[]{"U2120814C", "U2120304J", "U2122495G"};
+    
+        System.out.println("\n------------------------------------------------------");
+        System.out.println("INITIALIZATION");
+        System.out.println("------------------------------------------------------");
+        
+        // Extract identifier codes from all matriculation numbers
+        ArrayList<Integer> all_lastThreeChars = new ArrayList<>();
+        for (String matNumber : matriculationNumbers) {
+            Integer lastThreeChars = Integer.valueOf(matNumber.substring(matNumber.length() - 4, matNumber.length() - 1));
+            all_lastThreeChars.add(lastThreeChars);
+            System.out.println("Matriculation number: " + matNumber + " (Code: " + lastThreeChars + ")");
         }
+    
+        // Prepare data structures for efficient querying
+        System.out.println("Preparing data structures...");
+        System.out.println("→ Compressing town and date data");
+        db.compressTownDate();
+        System.out.println("→ Sorting by compressed data");
+        db.sortByCompressedData();
+        System.out.println("→ Building index");
+        db.buildIndex();
+        System.out.println("→ Creating zone map");
+        db.createZoneMap();
+        
+        // Prepare shared scan query specifications
+        System.out.println("→ Preparing shared scan specifications");
+        ArrayList<QuerySpec> fullQuerySpec = db.sharedScanQuerySpec(all_lastThreeChars);
+        
+        // Process individual methods for each matriculation number
+        for (String matNumber : matriculationNumbers) {
+            System.out.println("\n------------------------------------------------------");
+            System.out.println("PROCESSING: " + matNumber);
+            System.out.println("------------------------------------------------------");
+            
+            // Extract identifier code from matriculation number
+            String lastThreeChars = matNumber.substring(matNumber.length() - 4, matNumber.length() - 1);
+            int code = Integer.valueOf(lastThreeChars);
+            
+            // Initialize query specification for this matriculation number
+            System.out.println("Initializing query specification (Code: " + code + ")");
+            db.initQuerySpec(code);
+            
+            // Set current output file
+            // System.out.println("Setting output file: ScanResult_" + matNumber);
+            db.createOutputFile("ScanResult_" + matNumber);
+            
+            // Calculate default statistics
+            // System.out.println("Calculating default statistics...");
+            db.calculateDefault();
+            
+            // Execute methods in a 2x2 grid
+            System.out.println("\n-----------------------------------------  -----------------------------------------");
+            System.out.println("-> NORMAL METHOD                          -> INDEX METHOD");
+            
+            // Normal method
+            long startTimeNormal = System.nanoTime();
+            ArrayList<Integer> posArrayNormal = db.queryDB();
+            long endTimeNormal = System.nanoTime();
+            
+            // Index method
+            long startTimeIndex = System.nanoTime();
+            ArrayList<Integer> posArrayIndex = db.queryDBIndex();
+            long endTimeIndex = System.nanoTime();
+            
+            try {
+                System.out.printf("   Records found: %-24d   Records found: %d%n", 
+                        posArrayNormal.size(), posArrayIndex.size());
+                System.out.printf("   Time taken: %-26d   Time taken: %d ns%n", 
+                        (endTimeNormal - startTimeNormal), (endTimeIndex - startTimeIndex));
+            } catch (Exception e) {
+                System.out.println("   Error displaying results: " + e.getMessage());
+            }
+            
+            System.out.println("\n-----------------------------------------  -----------------------------------------");
+            System.out.println("-> COMPRESSED+ZONEMAP+SORTED METHOD       -> SHARED SCAN METHOD");
+            
+            // Compressed method
+            long startTimeComp = System.nanoTime();
+            ArrayList<Integer> posArrayComp = db.queryCompressedDB();
+            long endTimeComp = System.nanoTime();
+            
+            // Shared Scan method
+            long startTimeShared = System.nanoTime();
+            Map<QuerySpec, ArrayList<Integer>> allPosArray = db.sharedScanQueryDB(fullQuerySpec);
+            long endTimeShared = System.nanoTime();
+            
+            try {
+                // Find this matric number's corresponding query spec
+                int index = 0;
+                for (int i = 0; i < matriculationNumbers.length; i++) {
+                    if (matriculationNumbers[i].equals(matNumber)) {
+                        index = i;
+                        break;
+                    }
+                }
+                ArrayList<Integer> posArrayShared = allPosArray.get(fullQuerySpec.get(index));
+                
+                System.out.printf("   Records found: %-24d   Records found: %d%n", 
+                        posArrayComp.size(), posArrayShared.size());
+                System.out.printf("   Time taken: %-26d   Time taken: %d ns%n", 
+                        (endTimeComp - startTimeComp), (endTimeShared - startTimeShared));
+            } catch (Exception e) {
+                System.out.println("   Error displaying results: " + e.getMessage());
+            }
+            
+            // Close the output file
+            System.out.println("\nClosing output file...");
+            db.closeOutputFile();
+        }
+        
+        System.out.println("\n======================================================");
+        System.out.println("       All processing completed successfully");
+        System.out.println("======================================================");
     }
+    
 }

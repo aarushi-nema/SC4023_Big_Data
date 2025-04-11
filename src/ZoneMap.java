@@ -1,84 +1,118 @@
 import java.util.ArrayList;
+import java.util.List;
 
-public class ZoneMap {
-    private ArrayList<Short> zoneLargest;
-    private ArrayList<Integer> zoneIndex;
-
+/**
+ * Spatial partitioning system for efficient range queries on encoded data
+ * Works similarly to a zone map, dividing data into contiguous partitions
+ */
+public class ZoneMap{
+    private ArrayList<Short> partitionMaxValues;
+    private ArrayList<Integer> partitionEndIndices;
+    
+    /**
+     * Constructor initializes partition lists
+     */
     public ZoneMap() {
-        zoneLargest = new ArrayList<Short>();
-        zoneIndex = new ArrayList<>();
+        partitionMaxValues = new ArrayList<>();
+        partitionEndIndices = new ArrayList<>();
     }
-
-    public void addZone(short largestVal, int lastIndex) {
-        zoneLargest.add(largestVal);
-        zoneIndex.add(lastIndex);
+    
+    /**
+     * Adds a partition with its maximum value and end index
+     */
+    public void addZone(short maxValue, int endIndex) {
+        partitionMaxValues.add(maxValue);
+        partitionEndIndices.add(endIndex);
     }
-
+    
+    /**
+     * Displays partition information for debugging
+     */
     public void printZones() {
         System.out.println("Zone Largest Arr:");
-        for (int i=0; i < zoneLargest.size();i++) {
-            System.out.printf("%d,", zoneLargest.get(i));
+        for (int i = 0; i < partitionMaxValues.size(); i++) {
+            System.out.printf("%d,", partitionMaxValues.get(i));
         }
         System.out.printf("\n");
     }
-
-    public int[] getZone(short start, short end) {
-        int[] rtnArr = new int[4];
-        rtnArr[0] = -1; //Start Value:Start Finding Range
-        rtnArr[1] = -1; //Start Value:End Finding Range
-        rtnArr[2] = -1; //End Value:Start Finding Range
-        rtnArr[3] = -1; //End Value:End Finding Range
-        int i;
-
-        // Get Start Index
-        int startIndex = findZone(0, this.zoneLargest.size()-1, start);
-        int endIndex = findZone(startIndex, this.zoneLargest.size()-1, end);
-        if (startIndex > 0) {
-            rtnArr[0] = this.zoneIndex.get(startIndex-1) + 1;
-        }else {
-            rtnArr[0] = 0;
+    
+    /**
+     * Gets partition boundaries for a value range query
+     * Returns array with [startPartitionLower, startPartitionUpper, endPartitionLower, endPartitionUpper]
+     */
+    public int[] getZone(short startValue, short endValue) {
+        int[] boundaries = new int[4];
+        
+        // Initialize with invalid values
+        boundaries[0] = -1; // Start value: lower bound
+        boundaries[1] = -1; // Start value: upper bound
+        boundaries[2] = -1; // End value: lower bound
+        boundaries[3] = -1; // End value: upper bound
+        
+        // Find partition containing start value
+        int startPartition = findZone(0, partitionMaxValues.size() - 1, startValue);
+        
+        // Find partition containing end value
+        int endPartition = findZone(startPartition, partitionMaxValues.size() - 1, endValue);
+        
+        // Calculate boundary indices for start value
+        if (startPartition > 0) {
+            // If not in first partition, start from end of previous partition + 1
+            boundaries[0] = partitionEndIndices.get(startPartition - 1) + 1;
+        } else {
+            // If in first partition, start from index 0
+            boundaries[0] = 0;
         }
-        rtnArr[1] = this.zoneIndex.get(startIndex);
-
-        // Get End Index
-        if (endIndex > 0) {
-            if (endIndex > 0) {
-                // Get Current Zone's Starting point
-                rtnArr[2] = this.zoneIndex.get(endIndex-1) +1;
-            }else {
-                rtnArr[2] = 0;
-            }
+        boundaries[1] = partitionEndIndices.get(startPartition);
+        
+        // Calculate boundary indices for end value
+        if (endPartition > 0) {
+            // If not in first partition, start from end of previous partition + 1
+            boundaries[2] = partitionEndIndices.get(endPartition - 1) + 1;
+        } else {
+            // If in first partition, start from index 0
+            boundaries[2] = 0;
         }
-        rtnArr[3] = this.zoneIndex.get(endIndex);
-
-        return rtnArr;
+        boundaries[3] = partitionEndIndices.get(endPartition);
+        
+        return boundaries;
     }
-
-    private int findZone(int start, int end, short value) {
-        int startFind = start;
-        int endFind = end;
-        int findAreaSize, mid;
+    
+    /**
+     * Finds the partition containing a given value
+     * Uses binary search for larger datasets and linear search for smaller ranges
+     */
+    private int findZone(int startIndex, int endIndex, short searchValue) {
+        int current = startIndex;
+        int last = endIndex;
+        int rangeSize, mid;
+        
         while (true) {
-            findAreaSize = endFind-startFind;
-            if (findAreaSize <= 50) {
-                for (int i=startFind; i <= end;i++) {
-                    if (value <= this.zoneLargest.get(i)) {
+            rangeSize = last - current;
+            
+            if (rangeSize <= 5) {
+                // Small range - use linear search for better performance
+                for (int i = current; i <= endIndex; i++) {
+                    if (searchValue <= partitionMaxValues.get(i)) {
                         return i;
                     }
                 }
-                return start;
-            }else {
-                mid = startFind + (findAreaSize/2);
-                if (value < this.zoneIndex.get(mid)) {
-                    if (value > this.zoneIndex.get(mid-1)) {
+                // If we get here, value must be in the last partition
+                return current;
+            } else {
+                // Larger range - use binary search
+                mid = current + (rangeSize / 2);
+                
+                if (searchValue < partitionEndIndices.get(mid)) {
+                    if (searchValue > partitionEndIndices.get(mid - 1)) {
                         return mid;
-                    }else {
-                        // Search bottom half
-                        endFind = mid;
+                    } else {
+                        // Value in lower half
+                        last = mid;
                     }
-                }else {
-                    // Search top half
-                    startFind = mid;
+                } else {
+                    // Value in upper half
+                    current = mid;
                 }
             }
         }
