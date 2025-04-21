@@ -7,6 +7,7 @@ public class QuerySpec {
     public ArrayList<String> targetMonthsFormatted;
     public String targetYear;
     public String outputPrefix;
+    public ArrayList<String> targetYears;
 
     public QuerySpec(String targetLocation, ArrayList<Integer> targetMonths,
                      ArrayList<String> targetMonthsFormatted, String targetYear) {
