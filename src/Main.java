@@ -41,13 +41,8 @@ public class Main {
         db.createZoneMap();
         
         // Prepare shared scan query specifications
+        System.out.println("→ Preparing shared scan specifications");
         ArrayList<QuerySpec> fullQuerySpec = db.sharedScanQuerySpec(all_lastThreeChars);
-
-        //Doing Shared Scan
-        long startTime = System.nanoTime();
-        Map<QuerySpec, ArrayList<Integer>> AllposArray= db.sharedScanQueryDB(fullQuerySpec);
-        long stopTime = System.nanoTime();
-        long timeforSharedScan = stopTime - startTime;
         
         // Process individual methods for each matriculation number
         for (String matNumber : matriculationNumbers) {
@@ -94,13 +89,18 @@ public class Main {
                 System.out.println("   Error displaying results: " + e.getMessage());
             }
             
-            System.out.println("\n----------------------------------------- ");
+            System.out.println("\n-----------------------------------------  -----------------------------------------");
             System.out.println("-> COMPRESSED+ZONEMAP+SORTED METHOD       -> SHARED SCAN METHOD");
             
             // Compressed method
             long startTimeComp = System.nanoTime();
             ArrayList<Integer> posArrayComp = db.queryCompressedDB();
             long endTimeComp = System.nanoTime();
+            
+            // Shared Scan method
+            long startTimeShared = System.nanoTime();
+            Map<QuerySpec, ArrayList<Integer>> allPosArray = db.sharedScanQueryDB(fullQuerySpec);
+            long endTimeShared = System.nanoTime();
             
             try {
                 // Find this matric number's corresponding query spec
@@ -111,11 +111,12 @@ public class Main {
                         break;
                     }
                 }
+                ArrayList<Integer> posArrayShared = allPosArray.get(fullQuerySpec.get(index));
                 
-                System.out.printf("   Records found: %-24d  Records found: %d%n", 
-                        posArrayComp.size(), AllposArray.get(fullQuerySpec.get(index)).size());
-                System.out.printf("   Time taken: %-26d     Time taken: %d ns%n", 
-                        (endTimeComp - startTimeComp), (timeforSharedScan));
+                System.out.printf("   Records found: %-24d   Records found: %d%n", 
+                        posArrayComp.size(), posArrayShared.size());
+                System.out.printf("   Time taken: %-26d   Time taken: %d ns%n", 
+                        (endTimeComp - startTimeComp), (endTimeShared - startTimeShared));
             } catch (Exception e) {
                 System.out.println("   Error displaying results: " + e.getMessage());
             }
