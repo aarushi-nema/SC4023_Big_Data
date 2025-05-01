@@ -17,34 +17,6 @@ public class PropertyDataStore {
     
     // Constants
     private static final double AREA_THRESHOLD = 80.0;
-
-    private static final Map<Integer, ArrayList<String>> YEAR_MAPPING;
-
-    // Add this static initializer block to automatically generate year mappings
-    static {
-        YEAR_MAPPING = new HashMap<>();
-        
-        // Define the range of years in your dataset
-        int startYear = 2013; 
-        int endYear = 2024; 
-        
-        // Initialize mapping arrays for each digit 0-9
-        for (int digit = 0; digit <= 9; digit++) {
-            YEAR_MAPPING.put(digit, new ArrayList<>());
-        }
-        
-        // Automatically populate mappings for all years in range
-        for (int year = startYear; year <= endYear; year++) {
-            // Get the last digit of the year
-            int lastDigit = year % 10;
-            
-            // Add this year to the appropriate mapping
-            YEAR_MAPPING.get(lastDigit).add(String.valueOf(year));
-        }
-    }
-
-     // Also add the targetYears instance variable
-     private ArrayList<String> targetYears;
     
     // Data indexing structures
     private ArrayList<Short> encodedRecords;
@@ -95,24 +67,26 @@ public class PropertyDataStore {
             "BEDOK", "BUKIT PANJANG", "CLEMENTI", "CHOA CHU KANG", "HOUGANG",
             "JURONG WEST", "PASIR RIS", "TAMPINES", "WOODLANDS", "YISHUN"
         };
-    
+
         int[][] monthPairs = {
             {10, 11}, {1, 2}, {2, 3}, {3, 4}, {4, 5},
             {5, 6}, {6, 7}, {7, 8}, {8, 9}, {9, 10}
         };
-    
+
         String[][] formattedMonths = {
             {"10", "11"}, {"01", "02"}, {"02", "03"}, {"03", "04"}, {"04", "05"},
             {"05", "06"}, {"06", "07"}, {"07", "08"}, {"08", "09"}, {"09", "10"}
         };
-    
+
+        int[] yearMapping = {2020, 2021, 2022, 2023, 2014, 2015, 2016, 2017, 2018, 2019};
+
         ArrayList<QuerySpec> specList = new ArrayList<>();
-    
+
         for (int identifierDigits : identifierDigitsList) {
             int locationCode = identifierDigits / 100;
             int monthCode = (identifierDigits / 10) % 10;
             int yearCode = identifierDigits % 10;
-    
+
             String targetLocation = locations[locationCode];
             ArrayList<Integer> targetMonths = new ArrayList<>(Arrays.asList(
                 monthPairs[monthCode][0], monthPairs[monthCode][1]
@@ -120,25 +94,15 @@ public class PropertyDataStore {
             ArrayList<String> targetMonthsFormatted = new ArrayList<>(Arrays.asList(
                 formattedMonths[monthCode][0], formattedMonths[monthCode][1]
             ));
-    
-            // Get all years with this ending digit
-            ArrayList<String> targetYears = YEAR_MAPPING.get(yearCode);
-            
-            // Create combined string for targetYear field
-            String targetYear = String.join("+", targetYears);
-                
-            // Create the query spec
-            QuerySpec spec = new QuerySpec(targetLocation, targetMonths, targetMonthsFormatted, targetYear);
-            spec.targetYears = new ArrayList<>(targetYears);
-            specList.add(spec);
-            
-            // Log query parameters
+            String targetYear = String.valueOf(yearMapping[yearCode]);
+
             System.out.println("Town: " + targetLocation);
             System.out.println("Months: " + targetMonths.get(0) + ", " + targetMonths.get(1));
-            System.out.println("Years: " + String.join(", ", targetYears));
+            System.out.println("Year: " + targetYear);
             System.out.println("");
+            specList.add(new QuerySpec(targetLocation, targetMonths, targetMonthsFormatted, targetYear));
         }
-    
+
         return specList;
     }
 
@@ -170,25 +134,18 @@ public class PropertyDataStore {
         };
         
         // Years mapping
-        // int[] yearMapping = {2020, 2021, 2022, 2023, 2024, 2014, 2015, 2016, 2017, 2018, 2019};
+        int[] yearMapping = {2020, 2021, 2022, 2023, 2014, 2015, 2016, 2017, 2018, 2019};
         
         // Set query parameters
         targetLocation = locations[locationCode];
         targetMonths = new ArrayList<>(Arrays.asList(monthPairs[monthCode][0], monthPairs[monthCode][1]));
         targetMonthsFormatted = new ArrayList<>(Arrays.asList(formattedMonths[monthCode][0], formattedMonths[monthCode][1]));
-
-        // Get all years with this ending digit
-        targetYears = YEAR_MAPPING.get(yearCode);
-        
-        // For backward compatibility, set targetYear to a combined string of all years
-        targetYear = String.join("+", targetYears);
-
-        // targetYear = String.valueOf(yearMapping[yearCode]);
+        targetYear = String.valueOf(yearMapping[yearCode]);
         
         // Log query parameters
         System.out.println("Town: " + targetLocation);
         System.out.println("Months: " + targetMonths.get(0) + ", " + targetMonths.get(1));
-        System.out.println("Year: " + targetYears);
+        System.out.println("Year: " + targetYear);
         
         // Create output file naming format
         outputPrefix = String.format("%s,%s,%s", targetYear, targetMonthsFormatted.get(0), targetLocation);
@@ -456,45 +413,45 @@ public class PropertyDataStore {
     public Map<QuerySpec, ArrayList<Integer>> sharedScanQueryDB(ArrayList<QuerySpec> specs) {
         Map<QuerySpec, ArrayList<Integer>> resultMap = new HashMap<>();
         Map<QuerySpec, ArrayList<Integer>> dateFilteredMap = new HashMap<>();
-    
+
         // Initialize both maps per spec
         for (QuerySpec spec : specs) {
             resultMap.put(spec, new ArrayList<>());
             dateFilteredMap.put(spec, new ArrayList<>());
         }
-    
+
         // Step 1: Shared loop over all records (filter by date for each spec)
         for (int i = 0; i < columns.get(0).size(); i++) {
             String dateString = columns.get(COL_DATE).get(i);
             String[] dateParts = dateString.split("-");
             String year = dateParts[0];
             int month = Integer.parseInt(dateParts[1]);
-    
+
             for (QuerySpec spec : specs) {
-                // Check if the year is in the target years list and month is in target months
-                if (spec.targetYears.contains(year) && spec.targetMonths.contains(month)) {
+                if (year.equals(spec.targetYear) && spec.targetMonths.contains(month)) {
                     dateFilteredMap.get(spec).add(i); // Append to this spec's list
                 }
             }
         }   
-    
+
         // Step 2: For each spec, apply town + area filtering
         for (QuerySpec spec : specs) {
             ArrayList<Integer> finalResults = resultMap.get(spec);
             ArrayList<Integer> dateFiltered = dateFilteredMap.get(spec);
-    
+
             for (int i : dateFiltered) {
                 String town = columns.get(COL_LOCATION).get(i);
                 double floorArea = Double.parseDouble(columns.get(COL_AREA).get(i));
-    
+
                 if (town.equals(spec.targetLocation) && floorArea >= AREA_THRESHOLD) {
                     finalResults.add(i);
                 }
             }
         }
-    
+
         return resultMap;
     }
+
 
     /**
      * Basic query method - sequential scan
@@ -511,7 +468,7 @@ public class PropertyDataStore {
             int month = Integer.parseInt(dateParts[1]);
             
             // Check date criteria
-            if (targetYears.contains(year) && targetMonths.contains(month)) {
+            if (targetYear.equals(year) && targetMonths.contains(month)) {
                 posArray.add(i);
             }
         }
@@ -530,27 +487,54 @@ public class PropertyDataStore {
         return finalPosArray;
     }
     
+    /**
+     * Query using the multi-dimensional index
+     */
+    // public ArrayList<Integer> queryDBIndex() {
+    //     ArrayList<Integer> posArray = new ArrayList<>();
+    //     ArrayList<Integer> finalPosArray = new ArrayList<>();
+        
+    //     // Get location index
+    //     int townIndex = mapTownToIndex(targetLocation);
+        
+    //     // Get year index (last digit)
+    //     int yearDigit = Integer.parseInt(targetYear) % 10;
+        
+    //     // Query index for each target month
+    //     for (Integer month : targetMonths) {
+    //         posArray.addAll(mki.queryIndex(yearDigit, month, townIndex));
+    //     }
+        
+    //     // Apply area filter
+    //     for (int i : posArray) {
+    //         double floorArea = Double.parseDouble(columns.get(COL_AREA).get(i));
+    //         if (floorArea >= AREA_THRESHOLD) {
+    //             finalPosArray.add(i);
+    //         }
+    //     }
+        
+    //     return finalPosArray;
+    // }
+
     public ArrayList<Integer> queryDBIndex() {
         ArrayList<Integer> finalPosArray = new ArrayList<>();
     
         // Get location index
         int townIndex = mapTownToIndex(targetLocation);
     
-        // Since all years in targetYears end with the same digit, we can just use
-        // the last digit of the first year for the index query
-        int yearDigit = Integer.parseInt(targetYears.get(0)) % 10;
+        // Get year index (last digit) – keep it for querying but fix filtering below
+        int yearDigit = Integer.parseInt(targetYear) % 10;
     
         // Query index for each target month
         for (Integer month : targetMonths) {
             ArrayList<Integer> posArray = mki.queryIndex(yearDigit, month, townIndex);
     
-            // Additional filtering to match full years and area
+            // Additional filtering to match full year and area
             for (int i : posArray) {
                 String fullDate = columns.get(COL_DATE).get(i);
                 String yearFromData = fullDate.split("-")[0];
     
-                // Check if the year from the data is one of our target years
-                if (targetYears.contains(yearFromData)) {
+                if (yearFromData.equals(targetYear)) {
                     double floorArea = Double.parseDouble(columns.get(COL_AREA).get(i));
                     if (floorArea >= AREA_THRESHOLD) {
                         finalPosArray.add(i);
@@ -561,69 +545,70 @@ public class PropertyDataStore {
     
         return finalPosArray;
     }
-
     
+    
+    /**
+     * Query using encoded values and spatial partitions
+     * Performance-optimized while maintaining correctness
+     */
     public ArrayList<Integer> queryCompressedDB() {
         ArrayList<Integer> finalPosArray = new ArrayList<>();
         
-        // Process each year separately
-        for (String year : targetYears) {
-            // Create encoded search values for this year
-            String startMonth = year + "-" + targetMonthsFormatted.get(0);
-            String endMonth = year + "-" + targetMonthsFormatted.get(1);
-            
-            // Store town list as a class variable during compression for reuse
-            if (townCompressList == null || townCompressList.isEmpty()) {
-                // This should have been populated during compressTownDate, but recreate if needed
-                townCompressList = new ArrayList<>();
-                for (int i = 0; i < columns.get(0).size() && townCompressList.size() < 20; i++) {
-                    String town = columns.get(COL_LOCATION).get(i);
-                    if (!townCompressList.contains(town)) {
-                        townCompressList.add(town);
-                    }
+        // Create encoded search values
+        String startMonth = targetYear + "-" + targetMonthsFormatted.get(0);
+        String endMonth = targetYear + "-" + targetMonthsFormatted.get(1);
+        
+        // Store town list as a class variable during compression for reuse
+        if (townCompressList == null || townCompressList.isEmpty()) {
+            // This should have been populated during compressTownDate, but recreate if needed
+            townCompressList = new ArrayList<>();
+            for (int i = 0; i < columns.get(0).size() && townCompressList.size() < 20; i++) {
+                String town = columns.get(COL_LOCATION).get(i);
+                if (!townCompressList.contains(town)) {
+                    townCompressList.add(town);
                 }
             }
-            
-            // Store date list as a class variable during compression for reuse
-            if (dateCompressList == null || dateCompressList.isEmpty()) {
-                // This should have been populated during compressTownDate, but recreate if needed
-                dateCompressList = new ArrayList<>();
-                for (int y = this.smallestYear; y <= this.largestYear; y++) {
-                    for (int m = 1; m <= 12; m++) {
-                        String dateFormat = String.format("%d-%02d", y, m);
-                        dateCompressList.add(dateFormat);
-                    }
+        }
+        
+        // Store date list as a class variable during compression for reuse
+        if (dateCompressList == null || dateCompressList.isEmpty()) {
+            // This should have been populated during compressTownDate, but recreate if needed
+            dateCompressList = new ArrayList<>();
+            for (int y = this.smallestYear; y <= this.largestYear; y++) {
+                for (int m = 1; m <= 12; m++) {
+                    String dateFormat = String.format("%d-%02d", y, m);
+                    dateCompressList.add(dateFormat);
                 }
             }
-            
-            // Calculate compressed values for this year
-            short compressedValueStart = getCompressValue(targetLocation, startMonth);
-            short compressedValueEnd = getCompressValue(targetLocation, endMonth);
-            
-            // Get zone map locations for this year
-            int[] indexArr = zoneMap.getZone(compressedValueStart, compressedValueEnd);
-            
-            // Use simplified boundary search that's still accurate but faster
-            int startIndex = indexArr[0]; 
-            int endIndex = indexArr[3];
-            
-            // Perform a direct binary search if zone bounds are too large
-            if (endIndex - startIndex > 1000) {
-                startIndex = findCompressedValueFast(encodedRecords, startIndex, endIndex, compressedValueStart, true);
-                endIndex = findCompressedValueFast(encodedRecords, startIndex, endIndex, compressedValueEnd, false);
-            }
-            
-            // Apply area filter directly - with bounds checking for safety
-            if (startIndex >= 0 && endIndex >= 0 && startIndex < encodedRecords.size() && endIndex < encodedRecords.size()) {
-                for (int i = startIndex; i <= endIndex; i++) {
-                    if (i >= encodedRecords.size()) break;
-                    
-                    short encoded = encodedRecords.get(i);
-                    if (encoded >= compressedValueStart && encoded <= compressedValueEnd) {
-                        double floorArea = Double.parseDouble(columns.get(COL_AREA).get(i));
-                        if (floorArea >= AREA_THRESHOLD) {
-                            finalPosArray.add(i);
-                        }
+        }
+        
+        // Calculate compressed values once
+        short compressedValueStart = getCompressValue(targetLocation, startMonth);
+        short compressedValueEnd = getCompressValue(targetLocation, endMonth);
+        
+        // Get zone map locations - fast path for performance
+        int[] indexArr = zoneMap.getZone(compressedValueStart, compressedValueEnd);
+        
+        // Use simplified boundary search that's still accurate but faster
+        int startIndex = indexArr[0]; 
+        int endIndex = indexArr[3];
+        
+        // Perform a direct binary search if zone bounds are too large
+        if (endIndex - startIndex > 1000) {
+            startIndex = findCompressedValueFast(encodedRecords, startIndex, endIndex, compressedValueStart, true);
+            endIndex = findCompressedValueFast(encodedRecords, startIndex, endIndex, compressedValueEnd, false);
+        }
+        
+        // Apply area filter directly - with bounds checking for safety
+        if (startIndex >= 0 && endIndex >= 0 && startIndex < encodedRecords.size() && endIndex < encodedRecords.size()) {
+            for (int i = startIndex; i <= endIndex; i++) {
+                if (i >= encodedRecords.size()) break;
+                
+                short encoded = encodedRecords.get(i);
+                if (encoded >= compressedValueStart && encoded <= compressedValueEnd) {
+                    double floorArea = Double.parseDouble(columns.get(COL_AREA).get(i));
+                    if (floorArea >= AREA_THRESHOLD) {
+                        finalPosArray.add(i);
                     }
                 }
             }
@@ -631,7 +616,7 @@ public class PropertyDataStore {
         
         return finalPosArray;
     }
-
+    
     /**
      * Fast binary search for compressed values
      * @param values The list to search in
